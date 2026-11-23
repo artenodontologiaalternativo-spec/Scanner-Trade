@@ -139,6 +139,7 @@ def rodar():
             r["grupo"] = grupo
             r["referencia"] = ref_nome
             r["sinal"], r["nota"] = classificar(r)
+            r["tradingview"] = link_tv(nome, grupo)
             linhas.append(r)
     linhas.sort(key=lambda x: -x["nota"])
     return linhas
@@ -169,6 +170,20 @@ def garantir(forcar=False):
     if not CACHE["rodando"]:
         threading.Thread(target=atualizar, daemon=True).start()
     return False
+
+
+# ------------------------------------------------------------ tradingview
+LAYOUT_TV = "lxzTRit8"   # layout do Andre, com o indicador Medias Andre aplicado
+
+
+def link_tv(ativo, grupo):
+    if grupo == "B3":
+        simbolo = "BMFBOVESPA:" + ativo
+    elif grupo == "CRIPTO":
+        simbolo = "CRYPTO:" + ativo.replace("-USD", "") + "USD"
+    else:
+        simbolo = ativo
+    return f"https://br.tradingview.com/chart/{LAYOUT_TV}/?symbol={simbolo.replace(':', '%3A')}"
 
 
 # ----------------------------------------------------------------- saida
@@ -215,7 +230,7 @@ A pagina recarrega sozinha a cada 20 segundos.</p>{aviso}</body>""", 202
     linhas = []
     for d in dados:
         linhas.append(
-            f'<tr><td><b>{d["ativo"]}</b></td><td class=g>{d["grupo"]}</td>'
+            f'<tr><td><a href="{d["tradingview"]}" target=_blank><b>{d["ativo"]}</b></a></td><td class=g>{d["grupo"]}</td>'
             f'<td style="background:{COR[d["sinal"]]}22;color:{COR[d["sinal"]]};font-weight:600">{d["sinal"]}</td>'
             f'<td>{d["preco"]:.2f}</td>' + cel(d["var_dia"]) +
             f'<td>{d["atr_pct"]:.1f}%</td><td>{d["stop"]:.2f}</td>'
@@ -239,7 +254,7 @@ table{{border-collapse:collapse;width:100%;font-size:13px}}
 th{{text-align:left;padding:7px 8px;color:#8a8a93;font-weight:600;border-bottom:1px solid #26262e;
 position:sticky;top:0;background:#0b0b0f;white-space:nowrap}}
 td{{padding:6px 8px;border-bottom:1px solid #18181f;white-space:nowrap}}
-tr:hover td{{background:#15151c}} .g{{color:#6b6b75;font-size:11px}}
+tr:hover td{{background:#15151c}} a{{color:#8ab4ff;text-decoration:none}} a:hover{{text-decoration:underline}} .g{{color:#6b6b75;font-size:11px}}
 .wrap{{overflow-x:auto}}
 </style><body>
 <h1>Scanner — B3, EUA e cripto</h1>
