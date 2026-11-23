@@ -129,7 +129,7 @@ def rodar():
             continue
         df_ref = baixados[ref_sym]
         for nome, sym in zip(lista, simbolos):
-            if sym not in baixados or sym == ref_sym:
+            if sym not in baixados:
                 continue
             try:
                 r = medir(baixados[sym], df_ref)
