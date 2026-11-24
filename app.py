@@ -199,6 +199,11 @@ def cel(v, casas=1, pct=True):
     return f'<td style="color:{cor}">{v:+.{casas}f}{"%" if pct else ""}</td>'
 
 
+@app.route("/robots.txt")
+def robots():
+    return "User-agent: *\nAllow: /\n", 200, {"Content-Type": "text/plain"}
+
+
 @app.route("/ping")
 def ping():
     garantir()
