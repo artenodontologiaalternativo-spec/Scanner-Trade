@@ -173,7 +173,8 @@ def garantir(forcar=False):
 
 
 # ------------------------------------------------------------ tradingview
-LAYOUT_TV = "lxzTRit8"   # layout do Andre, com o indicador Medias Andre aplicado
+# Sem ID de layout: o link abre no grafico padrao do usuario logado,
+# que ja carrega os indicadores dele. Com ID, o TradingView recusa o acesso.
 
 
 def link_tv(ativo, grupo):
@@ -183,7 +184,7 @@ def link_tv(ativo, grupo):
         simbolo = "CRYPTO:" + ativo.replace("-USD", "") + "USD"
     else:
         simbolo = ativo
-    return f"https://br.tradingview.com/chart/{LAYOUT_TV}/?symbol={simbolo.replace(':', '%3A')}"
+    return f"https://br.tradingview.com/chart/?symbol={simbolo.replace(':', '%3A')}"
 
 
 # ----------------------------------------------------------------- saida
