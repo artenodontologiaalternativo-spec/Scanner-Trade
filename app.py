@@ -105,6 +105,11 @@ def classificar(r):
         return "LATERAL", 10 + r["adx"]
     if r["virou_hoje"] and d_comp and s_comp:
         return "VIROU COMPRA", 900 + r["adx"]
+    if r["virou_hoje"] and d_comp:
+        # Virou no diario, mas o semanal ainda esta vendedor: e repique dentro
+        # de tendencia de baixa, nao comeco de alta. Antes caia em "VENDA" e
+        # sumia da lista — foi o que escondeu a virada dos bancos em 26/11.
+        return "VIROU COMPRA SO DIARIO", 700 + r["adx"]
     if d_comp and s_comp and fr_ok:
         return "COMPRA", 800 + (r["fr20d"] + r["fr60d"]) / 2
     if d_comp and s_comp:
@@ -215,7 +220,7 @@ def link_tv(ativo, grupo):
 
 # ----------------------------------------------------------------- saida
 COR = {
-    "VIROU COMPRA": "#3b82f6", "COMPRA": "#22c55e", "COMPRA FRACA": "#84cc16",
+    "VIROU COMPRA": "#3b82f6", "VIROU COMPRA SO DIARIO": "#60a5fa", "COMPRA": "#22c55e", "COMPRA FRACA": "#84cc16",
     "AGUARDAR": "#eab308", "LATERAL": "#9ca3af", "VIROU VENDA": "#f97316",
     "VENDA": "#ef4444",
 }
