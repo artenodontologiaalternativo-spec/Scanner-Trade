@@ -313,5 +313,25 @@ HiLo 5 · ADX 14,14 · IFR 9 · FR contra IBOV / SPX / BTC</div>
 {''.join(linhas)}</table></div></body></html>"""
 
 
+# -------------------------------------------------------------- sonda
+# O WebFetch do Claude as vezes nao alcanca o site (o servico dorme no plano
+# gratuito e a checagem de robots falha). Entao a sonda tambem escreve no log
+# do servidor na partida, que e um caminho que sempre funciona.
+def _sondar_e_registrar():
+    try:
+        import json as _json
+        print("DIAGNOSTICO_INICIO", flush=True)
+        for parte, valor in diag.rodar_tudo().items():
+            print("DIAGNOSTICO " + parte + " " + _json.dumps(valor, default=str),
+                  flush=True)
+        print("DIAGNOSTICO_FIM", flush=True)
+    except Exception as e:
+        print("DIAGNOSTICO_ERRO " + repr(e)[:300], flush=True)
+
+
+if os.environ.get("SONDAR", "1") == "1":
+    threading.Thread(target=_sondar_e_registrar, daemon=True).start()
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
