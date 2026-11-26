@@ -66,35 +66,3 @@ Depois disso fica instantaneo por 6 horas.
 
 Edite **`tickers.py`**. Papeis da B3 vao sem o `.SA` (o programa acrescenta).
 Cripto usa o formato `ZEC-USD`.
-
-## Opcoes da B3 (/opcoes)
-
-`/opcoes?ativo=PETR4` monta a cadeia de opcoes com volatilidade implicita,
-gregas e IV Rank. `/opcoes/json?ativo=PETR4` devolve o mesmo em JSON.
-
-| Parametro | Padrao | O que faz |
-|---|---|---|
-| `ativo` | PETR4 | papel da B3 |
-| `min_dias` / `max_dias` | 20 / 45 | janela de vencimento |
-| `todas=1` | - | inclui opcoes sem negocio no dia |
-
-De onde vem cada numero:
-
-- **strike, vencimento, premio, volume**: arquivo COTAHIST diario da B3 (publico,
-  de fechamento). Nao ha cotacao ao vivo.
-- **volatilidade implicita e gregas**: calculadas por Black-Scholes, em `opcoes.py`.
-- **taxa de juros**: Selic meta, da API do Banco Central, com reserva de 15% a.a.
-- **IV Rank**: posicao da IV de hoje dentro dos ultimos 252 pregoes, usando o
-  arquivo `historico_iv.csv` (228 ativos), gerado a partir dos arquivos anuais
-  da B3 de 2025 e 2026.
-
-Cuidado: opcao com poucos negocios tem premio desatualizado, e a IV dela sai
-pouco confiavel. A IV no dinheiro usa a mediana das seis opcoes mais coladas no
-preco, justamente para nao depender de um negocio solto.
-
-## Ponte /buscar
-
-`/buscar?url=...` repassa dados publicos de mercado para quem nao alcanca esses
-sites diretamente. A lista de dominios liberados esta em `app.py`, em
-`SITES_TESTE`. O opcoes.net.br **nao** entra nessa lista: os termos de uso dele
-proibem acesso automatizado.

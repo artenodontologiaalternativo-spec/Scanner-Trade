@@ -5,12 +5,9 @@ Calcula os mesmos indicadores do painel 'Medias Andre' (ATR, HiLo, ADX,
 IFR 9 e forca relativa) no diario e no semanal, e classifica cada ativo.
 
 Endpoints:
-  /             tabela em HTML
-  /json         mesmos dados em JSON
-  /ping         acorda o servico
-  /opcoes       cadeia de opcoes da B3 com IV, gregas e IV Rank
-  /opcoes/json  o mesmo em JSON
-  /buscar       ponte para dados publicos da B3
+  /        tabela em HTML
+  /json    mesmos dados em JSON
+  /ping    acorda o servico
 """
 import os
 import threading
@@ -20,10 +17,9 @@ from datetime import datetime, timezone, timedelta
 
 import pandas as pd
 import yfinance as yf
-from flask import Flask, Response, jsonify, request
+from flask import Flask, jsonify, request
 
 import indicadores as ind
-import opcoes as op
 import tickers as tk
 
 app = Flask(__name__)
@@ -226,96 +222,6 @@ def rota_json():
                    total=len(CACHE["dados"]), ativos=CACHE["dados"])
 
 
-@app.route("/opcoes/json")
-def rota_opcoes_json():
-    ativo = request.args.get("ativo", "PETR4")
-    try:
-        return jsonify(op.cadeia(
-            ativo,
-            int(request.args.get("min_dias", 20)),
-            int(request.args.get("max_dias", 45)),
-            request.args.get("todas") != "1",
-        ))
-    except KeyError as e:
-        return jsonify(erro=str(e)), 404
-    except Exception as e:
-        return jsonify(erro="%s: %s" % (type(e).__name__, e)), 500
-
-
-@app.route("/opcoes")
-def rota_opcoes():
-    ativo = request.args.get("ativo", "PETR4")
-    try:
-        d = op.cadeia(ativo,
-                      int(request.args.get("min_dias", 20)),
-                      int(request.args.get("max_dias", 45)),
-                      request.args.get("todas") != "1")
-    except Exception as e:
-        return f"""<!doctype html><meta charset=utf-8><body
-style="background:#0b0b0f;color:#eee;font-family:system-ui;padding:40px">
-<h2>Nao consegui montar a cadeia de {ativo}</h2><p>{type(e).__name__}: {e}</p>
-<p><a href="/opcoes?ativo=PETR4" style="color:#8ab4ff">tentar PETR4</a></p>""", 404
-
-    rank = d["iv_rank"]
-    cor_rank = "#ef4444" if rank is not None and rank >= 80 else \
-               "#22c55e" if rank is not None and rank <= 20 else "#eab308"
-
-    def num(v, casas=3, sinal=True):
-        if v is None:
-            return '<td class=g>-</td>'
-        return f'<td>{v:+.{casas}f}</td>' if sinal else f'<td>{v:.{casas}f}</td>'
-
-    linhas = []
-    for o in d["opcoes"]:
-        cor = "#22c55e" if o["tipo"] == "CALL" else "#ef4444"
-        iv_cel = (f'<td><b>{o["iv"]:.1f}%</b></td>' if o["iv"]
-                  else '<td class=g>-</td>')
-        volume = f'{o["volume"]:,.0f}'.replace(",", ".")
-        venc = f'{o["vencimento"][8:10]}/{o["vencimento"][5:7]}'
-        linhas.append(
-            f'<tr><td><b>{o["ticker"]}</b></td>'
-            f'<td style="color:{cor}">{o["tipo"]}</td>'
-            f'<td class=g>{o["moneyness"]}</td>'
-            f'<td>{o["strike"]:.2f}</td>'
-            + cel(o["distancia_pct"])
-            + f'<td>{venc}</td><td>{o["dias"]}</td><td>{o["premio"]:.2f}</td>'
-            + iv_cel
-            + num(o["delta"]) + num(o["theta"]) + num(o["vega"], 3, False)
-            + f'<td>{o["negocios"]}</td><td>{volume}</td></tr>'
-        )
-    cab = ("Opcao|Tipo||Strike|Dist.|Venc.|Dias|Premio|IV|Delta|Theta|Vega|"
-           "Negocios|Volume R$").split("|")
-    return f"""<!doctype html><html lang=pt-br><meta charset=utf-8>
-<meta name=viewport content="width=device-width,initial-scale=1">
-<title>Opcoes {d["ativo"]}</title><style>
-body{{background:#0b0b0f;color:#e8e8ea;font-family:system-ui,-apple-system,sans-serif;margin:0;padding:16px}}
-h1{{font-size:19px;margin:0 0 4px}} .sub{{color:#8a8a93;font-size:13px;margin-bottom:6px}}
-.caixa{{background:#13131a;border:1px solid #26262e;border-radius:8px;padding:12px 14px;margin:12px 0;font-size:14px}}
-.rank{{font-size:26px;font-weight:700}}
-table{{border-collapse:collapse;width:100%;font-size:13px}}
-th{{text-align:left;padding:7px 8px;color:#8a8a93;font-weight:600;border-bottom:1px solid #26262e;
-position:sticky;top:0;background:#0b0b0f;white-space:nowrap}}
-td{{padding:6px 8px;border-bottom:1px solid #18181f;white-space:nowrap}}
-tr:hover td{{background:#15151c}} a{{color:#8ab4ff;text-decoration:none}} .g{{color:#6b6b75;font-size:11px}}
-.wrap{{overflow-x:auto}} .nav a{{margin-right:14px;font-size:14px}}
-</style><body>
-<h1>Opcoes {d["ativo"]} — R$ {d["preco"]:.2f}</h1>
-<div class=sub>Fechamento de {d["data"][8:10]}/{d["data"][5:7]}/{d["data"][:4]} ·
-vencimentos de {request.args.get("min_dias", 20)} a {request.args.get("max_dias", 45)} dias ·
-taxa de juros {d["taxa_juros_aa"]:.2f}% a.a. (Selic)</div>
-<div class=nav><a href="/">Scanner</a><a href="/opcoes/json?ativo={d["ativo"]}">JSON</a>
-<a href="/opcoes?ativo={d["ativo"]}&min_dias=1&max_dias=400">Todos os vencimentos</a></div>
-<div class=caixa>
-<span class=rank style="color:{cor_rank}">IV Rank {rank if rank is not None else "?"}</span>
-&nbsp;&nbsp;IV no dinheiro <b>{d["iv_atm"]}%</b> ·
-faixa dos ultimos 12 meses: {d["iv_min_12m"]}% a {d["iv_max_12m"]}%<br>
-<span class=g>{d["leitura"]}</span></div>
-<div class=wrap><table><tr>{''.join(f'<th>{h}</th>' for h in cab)}</tr>
-{''.join(linhas)}</table></div>
-<p class=g>Dado de fechamento da B3. IV e gregas calculadas por Black-Scholes.
-Opcao com poucos negocios tem IV pouco confiavel.</p></body></html>"""
-
-
 @app.route("/")
 def home():
     grupo = request.args.get("grupo", "").upper()
@@ -364,66 +270,6 @@ HiLo 5 · ADX 14,14 · IFR 9 · FR contra IBOV / SPX / BTC</div>
 <a href="/?grupo=CRIPTO">Cripto</a><a href="/json">JSON</a><a href="/?forcar=1">Recalcular</a></div>
 <div class=wrap><table><tr>{''.join(f'<th>{h}</th>' for h in cab)}</tr>
 {''.join(linhas)}</table></div></body></html>"""
-
-
-# ------------------------------------------------ ponte de acesso externo
-# O ambiente do Claude so alcanca uma lista curta de dominios. Este endpoint
-# deixa o servidor do Render buscar dados publicos de mercado e devolve o
-# conteudo cru, para o Claude ler.
-#
-# O opcoes.net.br NAO entra nesta lista: os termos de uso dele proibem
-# qualquer acesso automatizado ao site.
-SITES_TESTE = {
-    "arquivos.b3.com.br",
-    "cotacao.b3.com.br",
-    "sistemaswebb3-listados.b3.com.br",
-    "www.b3.com.br",
-    "b3.com.br",
-    "bvmf.bmfbovespa.com.br",
-}
-
-
-@app.route("/buscar")
-def buscar():
-    import urllib.error
-    import urllib.parse
-    import urllib.request
-
-    url = request.args.get("url", "https://arquivos.b3.com.br/")
-    host = urllib.parse.urlparse(url).hostname or ""
-    if host not in SITES_TESTE:
-        return jsonify(erro="host nao liberado", host=host), 403
-
-    req = urllib.request.Request(url, headers={
-        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                       "AppleWebKit/537.36 (KHTML, like Gecko) "
-                       "Chrome/131.0.0.0 Safari/537.36"),
-        "Accept": "*/*",
-        "Accept-Language": "pt-BR,pt;q=0.9",
-    })
-    def fluxo(resp):
-        """Repassa o arquivo em pedacos, para nao segurar tudo na memoria."""
-        try:
-            while True:
-                pedaco = resp.read(65536)
-                if not pedaco:
-                    break
-                yield pedaco
-        finally:
-            resp.close()
-
-    try:
-        resp = urllib.request.urlopen(req, timeout=60)
-        tipo = resp.headers.get("Content-Type", "text/plain")
-        if request.args.get("resumo") == "1":
-            corpo = resp.read(300000).decode("utf-8", "replace")
-            resp.close()
-            return jsonify(ok=True, status=200, tipo=tipo, trecho=corpo[:3000])
-        return Response(fluxo(resp), content_type=tipo)
-    except urllib.error.HTTPError as e:
-        return jsonify(ok=False, status=e.code, motivo=str(e))
-    except Exception as e:
-        return jsonify(ok=False, status=None, motivo=f"{type(e).__name__}: {e}")
 
 
 if __name__ == "__main__":
