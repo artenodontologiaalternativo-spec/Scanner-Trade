@@ -272,10 +272,20 @@ HiLo 5 · ADX 14,14 · IFR 9 · FR contra IBOV / SPX / BTC</div>
 {''.join(linhas)}</table></div></body></html>"""
 
 
-# ------------------------------------------------- teste de acesso externo
-# Endpoint so de diagnostico: verifica se o servidor do Render consegue
-# abrir o opcoes.net.br, que bloqueia o acesso vindo do ambiente do Claude.
-SITES_TESTE = {"opcoes.net.br", "www.opcoes.net.br"}
+# ------------------------------------------------ ponte de acesso externo
+# O ambiente do Claude so alcanca uma lista curta de dominios. Este endpoint
+# deixa o servidor do Render buscar dados publicos de mercado e devolve o
+# conteudo cru, para o Claude ler.
+#
+# O opcoes.net.br NAO entra nesta lista: os termos de uso dele proibem
+# qualquer acesso automatizado ao site.
+SITES_TESTE = {
+    "arquivos.b3.com.br",
+    "cotacao.b3.com.br",
+    "sistemaswebb3-listados.b3.com.br",
+    "www.b3.com.br",
+    "b3.com.br",
+}
 
 
 @app.route("/buscar")
@@ -284,7 +294,7 @@ def buscar():
     import urllib.parse
     import urllib.request
 
-    url = request.args.get("url", "https://opcoes.net.br/")
+    url = request.args.get("url", "https://arquivos.b3.com.br/")
     host = urllib.parse.urlparse(url).hostname or ""
     if host not in SITES_TESTE:
         return jsonify(erro="host nao liberado", host=host), 403
@@ -300,10 +310,11 @@ def buscar():
         with urllib.request.urlopen(req, timeout=25) as r:
             bruto = r.read(3000000)
             tipo = r.headers.get("Content-Type", "text/plain")
-        corpo = bruto.decode("utf-8", "replace")
         if request.args.get("resumo") == "1":
-            return jsonify(ok=True, status=200, bytes=len(corpo), trecho=corpo[:3000])
-        return Response(corpo, content_type=tipo)
+            corpo = bruto.decode("utf-8", "replace")
+            return jsonify(ok=True, status=200, tipo=tipo,
+                           bytes=len(bruto), trecho=corpo[:3000])
+        return Response(bruto, content_type=tipo)
     except urllib.error.HTTPError as e:
         return jsonify(ok=False, status=e.code, motivo=str(e))
     except Exception as e:
