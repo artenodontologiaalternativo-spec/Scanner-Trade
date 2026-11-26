@@ -17,7 +17,7 @@ from datetime import datetime, timezone, timedelta
 
 import pandas as pd
 import yfinance as yf
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 
 import indicadores as ind
 import tickers as tk
@@ -298,8 +298,12 @@ def buscar():
     })
     try:
         with urllib.request.urlopen(req, timeout=25) as r:
-            corpo = r.read(400000).decode("utf-8", "replace")
-        return jsonify(ok=True, status=200, bytes=len(corpo), trecho=corpo[:3000])
+            bruto = r.read(3000000)
+            tipo = r.headers.get("Content-Type", "text/plain")
+        corpo = bruto.decode("utf-8", "replace")
+        if request.args.get("resumo") == "1":
+            return jsonify(ok=True, status=200, bytes=len(corpo), trecho=corpo[:3000])
+        return Response(corpo, content_type=tipo)
     except urllib.error.HTTPError as e:
         return jsonify(ok=False, status=e.code, motivo=str(e))
     except Exception as e:
