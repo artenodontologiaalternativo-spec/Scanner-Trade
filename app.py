@@ -19,6 +19,7 @@ import pandas as pd
 import yfinance as yf
 from flask import Flask, jsonify, request
 
+import diagnostico as diag
 import indicadores as ind
 import tickers as tk
 
@@ -55,6 +56,7 @@ def medir(df, df_ref):
     r = {}
 
     r["preco"] = float(c.iloc[-1])
+    r["data"] = str(c.index[-1].date())  # data do candle usado
     r["var_dia"] = float((c.iloc[-1] / c.iloc[-2] - 1) * 100) if len(c) > 1 else 0.0
 
     a = ind.atr(h, l, c, 14)
@@ -212,13 +214,44 @@ def ping():
                    quando=CACHE["quando"].isoformat() if CACHE["quando"] else None)
 
 
+def datas_do_dado(linhas):
+    """Resume a data do ultimo candle por grupo.
+
+    O relogio do servidor nao diz nada sobre a idade do DADO: a fonte pode
+    entregar um candle de dias atras e o calculo roda normalmente. Esta funcao
+    expoe isso, para o scanner nunca mais publicar dado velho como se fosse de
+    hoje.
+    """
+    por_grupo = {}
+    for d in linhas:
+        g = d.get("grupo", "?")
+        dt = d.get("data")
+        if dt:
+            por_grupo.setdefault(g, {}).setdefault(dt, 0)
+            por_grupo[g][dt] += 1
+    resumo = {}
+    for g, contagem in por_grupo.items():
+        mais_comum = max(contagem.items(), key=lambda kv: kv[1])[0]
+        resumo[g] = {"data": mais_comum, "ativos": contagem[mais_comum],
+                     "divergentes": sum(v for k, v in contagem.items() if k != mais_comum)}
+    return resumo
+
+
+@app.route("/diagnostico")
+def rota_diagnostico():
+    """Sonda as fontes de dados de dentro do Render. So para depuracao."""
+    return jsonify(diag.rodar_tudo())
+
+
 @app.route("/json")
 def rota_json():
     if not garantir(request.args.get("forcar") == "1"):
         return jsonify(status="calculando",
                        aviso="Aguarde cerca de 60 segundos e chame de novo.",
                        erro=CACHE["erro"]), 202
-    return jsonify(status="ok", atualizado=CACHE["quando"].strftime("%d/%m/%Y %H:%M"),
+    return jsonify(status="ok",
+                   calculado_em=CACHE["quando"].strftime("%d/%m/%Y %H:%M"),
+                   data_do_dado=datas_do_dado(CACHE["dados"]),
                    total=len(CACHE["dados"]), ativos=CACHE["dados"])
 
 
@@ -247,6 +280,13 @@ A pagina recarrega sozinha a cada 20 segundos.</p>{aviso}</body>""", 202
             f'<td style="color:{"#22c55e" if d["hilo_s"]=="Comprador" else "#ef4444"}">{d["hilo_s"][:4]}</td>'
             f'<td>{d["gatilho"]:.2f}</td></tr>'
         )
+    resumo = datas_do_dado(dados)
+    partes = []
+    for g, info in sorted(resumo.items()):
+        extra = f' (+{info["divergentes"]} fora)' if info["divergentes"] else ""
+        partes.append(f'{g}: {info["data"]}{extra}')
+    selo_data = "Ultimo candle — " + " · ".join(partes) if partes else "sem dados"
+
     cab = ("Ativo|Grupo|Sinal|Preco|Dia|ATR%|Stop|IFR|ADX|"
            "FR20d|FR60d|FR20s|FR60s|HiLo D|HiLo S|Vira em").split("|")
     return f"""<!doctype html><html lang=pt-br><meta charset=utf-8>
@@ -264,7 +304,8 @@ tr:hover td{{background:#15151c}} a{{color:#8ab4ff;text-decoration:none}} a:hove
 .wrap{{overflow-x:auto}}
 </style><body>
 <h1>Scanner — B3, EUA e cripto</h1>
-<div class=sub>Atualizado em {CACHE["quando"].strftime("%d/%m/%Y as %H:%M")} (Brasilia) · {len(dados)} ativos ·
+<div class=sub>{selo_data}</div>
+<div class=sub>Calculado em {CACHE["quando"].strftime("%d/%m/%Y as %H:%M")} (Brasilia) · {len(dados)} ativos ·
 HiLo 5 · ADX 14,14 · IFR 9 · FR contra IBOV / SPX / BTC</div>
 <div class=nav><a href="/">Todos</a><a href="/?grupo=B3">B3</a><a href="/?grupo=EUA">EUA</a>
 <a href="/?grupo=CRIPTO">Cripto</a><a href="/json">JSON</a><a href="/?forcar=1">Recalcular</a></div>
