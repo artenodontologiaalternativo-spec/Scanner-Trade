@@ -306,15 +306,25 @@ def buscar():
         "Accept": "text/html,application/xhtml+xml",
         "Accept-Language": "pt-BR,pt;q=0.9",
     })
+    def fluxo(resp):
+        """Repassa o arquivo em pedacos, para nao segurar tudo na memoria."""
+        try:
+            while True:
+                pedaco = resp.read(65536)
+                if not pedaco:
+                    break
+                yield pedaco
+        finally:
+            resp.close()
+
     try:
-        with urllib.request.urlopen(req, timeout=25) as r:
-            bruto = r.read(3000000)
-            tipo = r.headers.get("Content-Type", "text/plain")
+        resp = urllib.request.urlopen(req, timeout=60)
+        tipo = resp.headers.get("Content-Type", "text/plain")
         if request.args.get("resumo") == "1":
-            corpo = bruto.decode("utf-8", "replace")
-            return jsonify(ok=True, status=200, tipo=tipo,
-                           bytes=len(bruto), trecho=corpo[:3000])
-        return Response(bruto, content_type=tipo)
+            corpo = resp.read(300000).decode("utf-8", "replace")
+            resp.close()
+            return jsonify(ok=True, status=200, tipo=tipo, trecho=corpo[:3000])
+        return Response(fluxo(resp), content_type=tipo)
     except urllib.error.HTTPError as e:
         return jsonify(ok=False, status=e.code, motivo=str(e))
     except Exception as e:
