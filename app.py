@@ -285,6 +285,7 @@ SITES_TESTE = {
     "sistemaswebb3-listados.b3.com.br",
     "www.b3.com.br",
     "b3.com.br",
+    "bvmf.bmfbovespa.com.br",
 }
 
 
