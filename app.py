@@ -272,5 +272,39 @@ HiLo 5 · ADX 14,14 · IFR 9 · FR contra IBOV / SPX / BTC</div>
 {''.join(linhas)}</table></div></body></html>"""
 
 
+# ------------------------------------------------- teste de acesso externo
+# Endpoint so de diagnostico: verifica se o servidor do Render consegue
+# abrir o opcoes.net.br, que bloqueia o acesso vindo do ambiente do Claude.
+SITES_TESTE = {"opcoes.net.br", "www.opcoes.net.br"}
+
+
+@app.route("/buscar")
+def buscar():
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    url = request.args.get("url", "https://opcoes.net.br/")
+    host = urllib.parse.urlparse(url).hostname or ""
+    if host not in SITES_TESTE:
+        return jsonify(erro="host nao liberado", host=host), 403
+
+    req = urllib.request.Request(url, headers={
+        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                       "AppleWebKit/537.36 (KHTML, like Gecko) "
+                       "Chrome/131.0.0.0 Safari/537.36"),
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "pt-BR,pt;q=0.9",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=25) as r:
+            corpo = r.read(400000).decode("utf-8", "replace")
+        return jsonify(ok=True, status=200, bytes=len(corpo), trecho=corpo[:3000])
+    except urllib.error.HTTPError as e:
+        return jsonify(ok=False, status=e.code, motivo=str(e))
+    except Exception as e:
+        return jsonify(ok=False, status=None, motivo=f"{type(e).__name__}: {e}")
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
