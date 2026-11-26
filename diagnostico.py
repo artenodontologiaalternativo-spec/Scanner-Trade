@@ -13,7 +13,7 @@ import urllib.error
 import pandas as pd
 
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-TIMEOUT = 25
+TIMEOUT = 8
 
 
 def _pegar(url):
@@ -25,9 +25,7 @@ def _pegar(url):
 def testar_stooq():
     """Stooq serve CSV puro, sem chave nem crumb. Falta saber o sufixo da B3."""
     candidatos = [
-        "petr4.sa", "petr4.br", "petr4", "petr4.bz",
-        "bbas3.sa", "bbas3.br",
-        "aapl.us", "^spx",
+        "petr4.sa", "petr4.br", "aapl.us",
     ]
     out = {}
     for s in candidatos:

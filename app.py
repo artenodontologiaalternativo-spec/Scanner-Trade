@@ -153,10 +153,34 @@ def atualizar():
     try:
         CACHE["dados"] = rodar()
         CACHE["quando"] = datetime.now(FUSO)
+        _registrar_resumo(CACHE["dados"])
     except Exception:
         CACHE["erro"] = traceback.format_exc()[-800:]
+        print("RESUMO_ERRO " + CACHE["erro"][-400:].replace("\n", " | "), flush=True)
     finally:
         CACHE["rodando"] = False
+
+
+def _registrar_resumo(linhas):
+    """Escreve no log do servidor a data do dado e as viradas.
+
+    O log e o unico canal que sempre funciona: o WebFetch do Claude falha na
+    checagem de robots enquanto o servico do plano gratuito acorda, e isso
+    derruba tanto a leitura manual quanto a tarefa diaria.
+    """
+    import json as _json
+    resumo = datas_do_dado(linhas)
+    print("RESUMO datas " + _json.dumps(resumo, default=str), flush=True)
+    viradas = [f'{d["ativo"]}:{d["sinal"].split()[-1]}:{d["preco"]:.2f}:{d["data"]}'
+               for d in linhas if d["sinal"].startswith("VIROU")]
+    print(f"RESUMO total={len(linhas)} viradas={len(viradas)} " +
+          " ".join(viradas[:40]), flush=True)
+    for g in ("BBAS3", "PETR4", "VALE3", "AAPL", "BTC-USD"):
+        for d in linhas:
+            if d["ativo"] == g:
+                print(f'RESUMO amostra {g} preco={d["preco"]:.2f} '
+                      f'var={d["var_dia"]:+.2f}% data={d["data"]}', flush=True)
+                break
 
 
 def fresco():
